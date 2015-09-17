@@ -92,23 +92,25 @@ static void treeViewSelChanged(GtkTreeView* treeView, gpointer userData)
 
 	gtk_tree_view_get_cursor(treeView, &path, &col);
 
-	GtkTreeIter iter;
-	gtk_tree_model_get_iter(GTK_TREE_MODEL(treeModel), &iter, path);
+        if (path) {
+        	GtkTreeIter iter;
+        	gtk_tree_model_get_iter(GTK_TREE_MODEL(treeModel), &iter, path);
 
-	vmime::component* comp = NULL;
-	gtk_tree_model_get(GTK_TREE_MODEL(treeModel), &iter, 1, &comp, -1);
+        	vmime::component* comp = NULL;
+        	gtk_tree_model_get(GTK_TREE_MODEL(treeModel), &iter, 1, &comp, -1);
 
-	GtkTextBuffer* textBuffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textArea));
-	GtkTextIter start, end;
+        	GtkTextBuffer* textBuffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textArea));
+        	GtkTextIter start, end;
 
-	gtk_text_buffer_get_iter_at_offset(textBuffer, &start, comp->getParsedOffset());
-	gtk_text_buffer_get_iter_at_offset(textBuffer, &end, comp->getParsedOffset() + comp->getParsedLength());
+        	gtk_text_buffer_get_iter_at_offset(textBuffer, &start, comp->getParsedOffset());
+        	gtk_text_buffer_get_iter_at_offset(textBuffer, &end, comp->getParsedOffset() + comp->getParsedLength());
 
-	gtk_text_buffer_select_range(textBuffer, &start, &end);
+        	gtk_text_buffer_select_range(textBuffer, &start, &end);
 
-	gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(textArea), &start, 0.0, FALSE, 0.0, 0.0);
+        	gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(textArea), &start, 0.0, FALSE, 0.0, 0.0);
 
-	gtk_tree_path_free(path);
+        	gtk_tree_path_free(path);
+        }
 }
 
 

@@ -1,5 +1,6 @@
 
 IF(VMIME_BUILD_SAMPLES)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-old-style-cast")
 
 	ADD_SUBDIRECTORY(viewer)
 
