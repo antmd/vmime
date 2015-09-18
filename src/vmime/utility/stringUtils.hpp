@@ -29,6 +29,7 @@
 #include "vmime/base.hpp"
 
 #include <sstream>
+#include <vector>
 
 
 namespace vmime {
@@ -41,6 +42,10 @@ namespace utility {
 class VMIME_EXPORT stringUtils
 {
 public:
+
+
+        static std::vector<string>
+        splitString(const string &instr, const char *sep);
 
 	/** Makes a string from bytes.
 	  *

@@ -21,172 +21,96 @@
 // the GNU General Public License cover the whole combination.
 //
 
-#include "vmime/config.hpp"
-
+#include "SASLSession.hpp"
 
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
-
-#include <sstream>
-
-#include <gsasl.h>
-
-#include "vmime/security/sasl/SASLSession.hpp"
-
-#include "vmime/security/sasl/SASLContext.hpp"
-#include "vmime/security/sasl/SASLSocket.hpp"
 #include "vmime/security/sasl/SASLAuthenticator.hpp"
+#include "vmime/security/sasl/SASLMechanism.hpp"
+#include "vmime/security/sasl/SASLSocket.hpp"
 
+#define SHARED_THIS (dynamicCast<SASLSession<SASLImpl>>(shared_from_this()))
 
 namespace vmime {
 namespace security {
 namespace sasl {
+namespace detail {
 
 
-SASLSession::SASLSession(const string& serviceName, shared_ptr <SASLContext> ctx,
-                 shared_ptr <authenticator> auth, shared_ptr <SASLMechanism> mech)
-	: m_serviceName(serviceName), m_context(ctx), m_auth(auth),
-	  m_mech(mech), m_gsaslContext(0), m_gsaslSession(0)
+template <class SASLImpl>
+SASLSession<SASLImpl>::~SASLSession()
 {
-	if (gsasl_init(&m_gsaslContext) != GSASL_OK)
-		throw std::bad_alloc();
-
-	gsasl_client_start(m_gsaslContext, mech->getName().c_str(), &m_gsaslSession);
-
-	gsasl_callback_set(m_gsaslContext, gsaslCallback);
-	gsasl_callback_hook_set(m_gsaslContext, this);
+	this->teardownContext();
+	m_nativeSession = 0;
 }
 
-
-SASLSession::~SASLSession()
+template <class SASLImpl>
+SASLSession<SASLImpl>::SASLSession(
+    const string &serviceName, shared_ptr<authenticator> auth,
+    std::shared_ptr<SASLMechanism<SASLImpl>> mech)
+    : m_serviceName(serviceName), m_auth(auth), m_mech(mech)
 {
-	gsasl_finish(m_gsaslSession);
-	m_gsaslSession = NULL;
-
-	gsasl_done(m_gsaslContext);
-	m_gsaslContext = NULL;
+	this->startSessionImpl();
 }
 
-
-void SASLSession::init()
+template <class SASLImpl> void SASLSession<SASLImpl>::init()
 {
-	shared_ptr <SASLAuthenticator> saslAuth = dynamicCast <SASLAuthenticator>(m_auth);
+	shared_ptr<SASLAuthenticator<SASLImpl>> saslAuth =
+	    dynamicCast<SASLAuthenticator<SASLImpl>>(m_auth);
 
 	if (saslAuth)
 	{
 		saslAuth->setSASLMechanism(m_mech);
-		saslAuth->setSASLSession(dynamicCast <SASLSession>(shared_from_this()));
+		saslAuth->setSASLSession(SHARED_THIS);
 	}
 }
 
-
-shared_ptr <authenticator> SASLSession::getAuthenticator()
+template <class SASLImpl>
+shared_ptr<authenticator> SASLSession<SASLImpl>::getAuthenticator()
 {
 	return m_auth;
 }
 
-
-shared_ptr <SASLMechanism> SASLSession::getMechanism()
+template <class SASLImpl>
+std::shared_ptr<SASLMechanism<SASLImpl>> SASLSession<SASLImpl>::getMechanism()
 {
 	return m_mech;
 }
 
-
-shared_ptr <SASLContext> SASLSession::getContext()
+template <class SASLImpl>
+bool SASLSession<SASLImpl>::evaluateChallenge(const byte_t *challenge,
+                                              const size_t challengeLen,
+                                              byte_t **response,
+                                              size_t *responseLen)
 {
-	return m_context;
+	return m_mech->step(SHARED_THIS, challenge, challengeLen, response, responseLen);
 }
 
-
-bool SASLSession::evaluateChallenge
-	(const byte_t* challenge, const size_t challengeLen,
-	 byte_t** response, size_t* responseLen)
+template <class SASLImpl>
+shared_ptr<net::socket>
+SASLSession<SASLImpl>::getSecuredSocket(shared_ptr<net::socket> sok)
 {
-	return m_mech->step(dynamicCast <SASLSession>(shared_from_this()),
-		challenge, challengeLen, response, responseLen);
+	return make_shared<SASLSocket<SASLImpl>>(SHARED_THIS, sok);
 }
 
-
-shared_ptr <net::socket> SASLSession::getSecuredSocket(shared_ptr <net::socket> sok)
-{
-	return make_shared <SASLSocket>(dynamicCast <SASLSession>(shared_from_this()), sok);
-}
-
-
-const string SASLSession::getServiceName() const
+template <class SASLImpl>
+const string SASLSession<SASLImpl>::getServiceName() const
 {
 	return m_serviceName;
 }
 
-
-// static
-int SASLSession::gsaslCallback
-	(Gsasl* ctx, Gsasl_session* sctx, Gsasl_property prop)
+template <class SASLImpl>
+typename SASLImpl::SASLNativeSessionType
+SASLSession<SASLImpl>::getNativeSession()
 {
-	SASLSession* sess = reinterpret_cast <SASLSession*>(gsasl_callback_hook_get(ctx));
-	if (!sess) return GSASL_AUTHENTICATION_ERROR;
-
-	shared_ptr <authenticator> auth = sess->getAuthenticator();
-
-	try
-	{
-		string res;
-
-		switch (prop)
-		{
-		case GSASL_AUTHID:
-
-			res = auth->getUsername();
-			break;
-
-		case GSASL_PASSWORD:
-
-			res = auth->getPassword();
-			break;
-
-		case GSASL_ANONYMOUS_TOKEN:
-
-			res = auth->getAnonymousToken();
-			break;
-
-		case GSASL_HOSTNAME:
-
-			res = auth->getHostname();
-			break;
-
-		case GSASL_SERVICE:
-
-			res = auth->getServiceName();
-			break;
-
-		case GSASL_AUTHZID:
-		case GSASL_GSSAPI_DISPLAY_NAME:
-		case GSASL_PASSCODE:
-		case GSASL_SUGGESTED_PIN:
-		case GSASL_PIN:
-		case GSASL_REALM:
-
-		default:
-
-			return GSASL_NO_CALLBACK;
-		}
-
-		gsasl_property_set(sctx, prop, res.c_str());
-
-		return GSASL_OK;
-	}
-	//catch (exceptions::no_auth_information&)
-	catch (...)
-	{
-		return GSASL_NO_CALLBACK;
-	}
+	return m_nativeSession;
 }
 
+template class VMIME_EXPORT SASLSession<SASLImplementation>;
 
+} // detail
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
-

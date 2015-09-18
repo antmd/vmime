@@ -37,52 +37,58 @@
 namespace vmime {
 namespace security {
 namespace sasl {
-
-
-class SASLContext;
+namespace detail {
+				
+				
+template <class SASLImpl> class SASLContext;
+template <class SASLImpl> class SASLSession;
 
 
 /** A built-in authentication mechanism that relies on
-  * the GNU SASL library.
-  */
-class VMIME_EXPORT builtinSASLMechanism : public SASLMechanism
+ * the GNU SASL library.
+ */
+template <class SASLImpl>
+class VMIME_EXPORT builtinSASLMechanism : public SASLMechanism<SASLImpl>
 {
 public:
-
-	builtinSASLMechanism(shared_ptr <SASLContext> ctx, const string& name);
-	~builtinSASLMechanism();
-
-
-	const string getName() const;
-
-	bool step(shared_ptr <SASLSession> sess,
-		 const byte_t* challenge, const size_t challengeLen,
-		 byte_t** response, size_t* responseLen);
-
-	bool isComplete() const;
-
-	bool hasInitialResponse() const;
-
-	void encode(shared_ptr <SASLSession> sess,
-		const byte_t* input, const size_t inputLen,
-		byte_t** output, size_t* outputLen);
-
-	void decode(shared_ptr <SASLSession> sess,
-		const byte_t* input, const size_t inputLen,
-		byte_t** output, size_t* outputLen);
-
+	
+	builtinSASLMechanism(shared_ptr <SASLContext<SASLImpl>> ctx, const string& name);
+	~builtinSASLMechanism(){;}
+	
+	
+	const string getName() const override;
+	
+	bool step(shared_ptr <SASLSession<SASLImpl>> sess,
+		  const byte_t* challenge, const size_t challengeLen,
+		  byte_t** response, size_t* responseLen) override;
+	
+	bool isComplete(shared_ptr<SASLSession<SASLImpl>> sess) const override;
+	
+	bool hasInitialResponse() const override;
+	
+	void encode(shared_ptr <SASLSession<SASLImpl>> sess,
+		    const byte_t* input, const size_t inputLen,
+		    byte_t** output, size_t* outputLen) override;
+	
+	void decode(shared_ptr <SASLSession<SASLImpl>> sess,
+		    const byte_t* input, const size_t inputLen,
+		    byte_t** output, size_t* outputLen) override;
+	
 private:
-
+	
 	/** SASL context */
-	shared_ptr <SASLContext> m_context;
+	shared_ptr <SASLContext<SASLImpl>> m_context;
 
 	/** Mechanism name */
 	const string m_name;
-
-	/** Authentication process status. */
-	bool m_complete;
+	
 };
+	
+extern template class builtinSASLMechanism<SASLImplementation>;
+	
+} // detail
 
+using builtinSASLMechanism = detail::builtinSASLMechanism<SASLImplementation>;
 
 } // sasl
 } // security

@@ -32,6 +32,7 @@
 
 
 #include "vmime/security/sasl/defaultSASLAuthenticator.hpp"
+#include "vmime/security/sasl/SASLMechanism.hpp"
 
 
 namespace vmime {

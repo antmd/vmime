@@ -21,50 +21,34 @@
 // the GNU General Public License cover the whole combination.
 //
 
-#include "vmime/config.hpp"
-
-
+#include "defaultSASLAuthenticator.hpp"
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
+#include "SASLSession.hpp"
+#include "SASLMechanism.hpp"
 
-#include "vmime/security/sasl/defaultSASLAuthenticator.hpp"
-
-#include "vmime/security/sasl/SASLMechanism.hpp"
-#include "vmime/security/sasl/SASLSession.hpp"
-#include "vmime/security/sasl/SASLContext.hpp"
-
-#include "vmime/net/service.hpp"
-
+#include <memory>
 
 namespace vmime {
 namespace security {
 namespace sasl {
+namespace detail {
 
-
-defaultSASLAuthenticator::defaultSASLAuthenticator()
-{
-}
-
-
-defaultSASLAuthenticator::~defaultSASLAuthenticator()
-{
-}
-
-
-const std::vector <shared_ptr <SASLMechanism> >
-	defaultSASLAuthenticator::getAcceptableMechanisms
-		(const std::vector <shared_ptr <SASLMechanism> >& available,
-		 shared_ptr <SASLMechanism> suggested) const
+template <class SASLImpl>
+const std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>>
+defaultSASLAuthenticator<SASLImpl>::getAcceptableMechanisms(
+    const std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>> &available,
+    std::shared_ptr<SASLMechanism<SASLImpl>> suggested) const
 {
 	if (suggested)
 	{
-		std::vector <shared_ptr <SASLMechanism> > res;
+		std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>> res;
 
 		res.push_back(suggested);
 
-		for (unsigned int i = 0 ; i < available.size() ; ++i)
+		for (unsigned int i = 0; i < available.size(); ++i)
 		{
-			if (available[i]->getName() != suggested->getName())
+			if (available.at(i)->getName() != suggested->getName())
 				res.push_back(available[i]);
 		}
 
@@ -76,84 +60,75 @@ const std::vector <shared_ptr <SASLMechanism> >
 	}
 }
 
-
-const string defaultSASLAuthenticator::getUsername() const
+template <class SASLImpl>
+const string defaultSASLAuthenticator<SASLImpl>::getUsername() const
 {
 	return m_default.getUsername();
 }
 
-
-const string defaultSASLAuthenticator::getPassword() const
+template <class SASLImpl>
+const string defaultSASLAuthenticator<SASLImpl>::getPassword() const
 {
 	return m_default.getPassword();
 }
 
-
-const string defaultSASLAuthenticator::getAccessToken() const
-{
-	return m_default.getAccessToken();
-}
-
-
-const string defaultSASLAuthenticator::getHostname() const
+template <class SASLImpl>
+const string defaultSASLAuthenticator<SASLImpl>::getHostname() const
 {
 	return m_default.getHostname();
 }
 
-
-const string defaultSASLAuthenticator::getAnonymousToken() const
+template <class SASLImpl>
+const string defaultSASLAuthenticator<SASLImpl>::getAnonymousToken() const
 {
 	return m_default.getAnonymousToken();
 }
 
-
-const string defaultSASLAuthenticator::getServiceName() const
+template <class SASLImpl>
+const string defaultSASLAuthenticator<SASLImpl>::getAccessToken() const
 {
-	return m_saslSession.lock()->getServiceName();
+	return m_default.getAccessToken();
 }
 
+template <class SASLImpl>
+const string defaultSASLAuthenticator<SASLImpl>::getServiceName() const
+{
+	return m_session.lock()->getServiceName();
+}
 
-void defaultSASLAuthenticator::setService(shared_ptr <net::service> serv)
+template <class SASLImpl>
+void defaultSASLAuthenticator<SASLImpl>::setSASLSession(
+    std::shared_ptr<SASLSession<SASLImpl>> sess)
+{
+	m_session = sess;
+}
+
+template <class SASLImpl>
+void defaultSASLAuthenticator<SASLImpl>::setService(
+    shared_ptr<net::service> serv)
 {
 	m_service = serv;
 	m_default.setService(serv);
 }
 
-
-weak_ptr <net::service> defaultSASLAuthenticator::getService() const
-{
-	return m_service;
-}
-
-
-void defaultSASLAuthenticator::setSASLSession(shared_ptr <SASLSession> sess)
-{
-	m_saslSession = sess;
-}
-
-
-shared_ptr <SASLSession> defaultSASLAuthenticator::getSASLSession() const
-{
-	return constCast <SASLSession>(m_saslSession.lock());
-}
-
-
-void defaultSASLAuthenticator::setSASLMechanism(shared_ptr <SASLMechanism> mech)
+template <class SASLImpl>
+void defaultSASLAuthenticator<SASLImpl>::setSASLMechanism(
+    std::shared_ptr<SASLMechanism<SASLImpl>> mech)
 {
 	m_saslMech = mech;
 }
-
-
-shared_ptr <SASLMechanism> defaultSASLAuthenticator::getSASLMechanism() const
+template <class SASLImpl>
+shared_ptr<SASLMechanism<SASLImpl>>
+defaultSASLAuthenticator<SASLImpl>::getSASLMechanism() const
 {
 	return m_saslMech;
 }
 
+template class VMIME_EXPORT defaultSASLAuthenticator<SASLImplementation>;
 
+} // detail
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
-

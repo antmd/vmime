@@ -24,68 +24,64 @@
 #ifndef VMIME_SECURITY_SASL_SASLCONTEXT_HPP_INCLUDED
 #define VMIME_SECURITY_SASL_SASLCONTEXT_HPP_INCLUDED
 
-
 #include "vmime/config.hpp"
-
 
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
-
+#include "vmime/security/sasl/SASLCommon.hpp"
 #include "vmime/types.hpp"
-
-#include "vmime/security/sasl/SASLSession.hpp"
-#include "vmime/security/sasl/SASLMechanismFactory.hpp"
-
 
 namespace vmime {
 namespace security {
 namespace sasl {
+namespace detail {
 
+template<typename T> class SASLMechanismFactory;
 
 /** An SASL client context.
-  */
-class VMIME_EXPORT SASLContext : public object
+ */
+template <typename SASLImpl>
+class VMIME_EXPORT SASLContext : public SASLImpl, public object
 {
-	friend class SASLSession;
-	friend class builtinSASLMechanism;
+	template <class T> friend class SASLSession;
+	template <class T> friend class builtinSASLMechanism;
 
-public:
-
-	~SASLContext();
+  public:
+	~SASLContext() ;
 
 	/** Construct and initialize a new SASL context.
-	  */
+	 */
 	SASLContext();
 
 	/** Create and initialize a new SASL session.
-	  *
-	  * @param serviceName name of the service which will use the session
-	  * @param auth authenticator object to use during the session
-	  * @param mech SASL mechanism
-	  * @return a new SASL session
-	  */
-	shared_ptr <SASLSession> createSession
-		(const string& serviceName,
-		 shared_ptr <authenticator> auth, shared_ptr <SASLMechanism> mech);
+	 *
+	 * @param serviceName name of the service which will use the session
+	 * @param auth authenticator object to use during the session
+	 * @param mech SASL mechanism
+	 * @return a new SASL session
+	 */
+	std::shared_ptr<SASLSession<SASLImpl>>
+	createSession(const string &serviceName, shared_ptr<authenticator> auth,
+	              shared_ptr<SASLMechanism<SASLImpl>> mech);
 
 	/** Create an instance of an SASL mechanism.
-	  *
-	  * @param name mechanism name
-	  * @return a new instance of the specified SASL mechanism
-	  * @throw exceptions::no_such_mechanism if no mechanism is
-	  * registered for the specified name
-	  */
-	shared_ptr <SASLMechanism> createMechanism(const string& name);
+	 *
+	 * @param name mechanism name
+	 * @return a new instance of the specified SASL mechanism
+	 * @throw exceptions::no_such_mechanism if no mechanism is
+	 * registered for the specified name
+	 */
+	std::shared_ptr<SASLMechanism<SASLImpl>> createMechanism(const string &name);
 
 	/** Suggests an SASL mechanism among a set of mechanisms
-	  * supported by the server.
-	  *
-	  * @param mechs list of mechanisms
-	  * @return suggested mechanism (usually the safest mechanism
-	  * supported by both the client and the server)
-	  */
-	shared_ptr <SASLMechanism> suggestMechanism
-		(const std::vector <shared_ptr <SASLMechanism> >& mechs);
+	 * supported by the server.
+	 *
+	 * @param mechs list of mechanisms
+	 * @return suggested mechanism (usually the safest mechanism
+	 * supported by both the client and the server)
+	 */
+	std::shared_ptr<SASLMechanism<SASLImpl>> suggestMechanism(
+	    const std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>> &mechs);
 
 	/** Helper function for decoding Base64-encoded challenge.
 	  *
@@ -102,27 +98,20 @@ public:
 	  * @return Base64-encoded challenge
 	  */
 	const string encodeB64(const byte_t* input, const size_t inputLen);
-
-private:
-
-	static const string getErrorMessage(const string& fname, const int code);
-
-
-#ifdef GSASL_VERSION
-	Gsasl* m_gsaslContext;
-#else
-	void* m_gsaslContext;
-#endif // GSASL_VERSION
-
+  protected:
+	virtual const string getErrorMessage(const string &fname, const int code);
 };
 
+extern template class VMIME_EXPORT SASLContext<SASLImplementation>;
+
+} // detail
+
+using SASLContext = detail::SASLContext<SASLImplementation>;
 
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
 #endif // VMIME_SECURITY_SASL_SASLCONTEXT_HPP_INCLUDED
-

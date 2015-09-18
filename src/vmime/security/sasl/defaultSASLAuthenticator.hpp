@@ -24,35 +24,36 @@
 #ifndef VMIME_SECURITY_SASL_DEFAULTSASLAUTHENTICATOR_HPP_INCLUDED
 #define VMIME_SECURITY_SASL_DEFAULTSASLAUTHENTICATOR_HPP_INCLUDED
 
-
 #include "vmime/config.hpp"
-
 
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
+#include "vmime/security/sasl/SASLCommon.hpp"
 
 #include "vmime/security/sasl/SASLAuthenticator.hpp"
 #include "vmime/security/defaultAuthenticator.hpp"
 
+#include <memory>
 
 namespace vmime {
 namespace security {
 namespace sasl {
-
+namespace detail {
 
 /** An authenticator that is capable of providing information
-  * for simple authentication mechanisms (username and password).
-  */
-class VMIME_EXPORT defaultSASLAuthenticator : public SASLAuthenticator
+ * for simple authentication mechanisms (username and password).
+ */
+template <class SASLImpl>
+class VMIME_EXPORT defaultSASLAuthenticator : public SASLAuthenticator<SASLImpl>
 {
-public:
+  public:
+	defaultSASLAuthenticator() { ; }
+	~defaultSASLAuthenticator() { ; }
 
-	defaultSASLAuthenticator();
-	~defaultSASLAuthenticator();
-
-	const std::vector <shared_ptr <SASLMechanism> > getAcceptableMechanisms
-		(const std::vector <shared_ptr <SASLMechanism> >& available,
-	         shared_ptr <SASLMechanism> suggested) const;
+	virtual const std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>>
+	getAcceptableMechanisms(
+	    const std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>> &available,
+	    std::shared_ptr<SASLMechanism<SASLImpl>> suggested) const;
 
 	const string getUsername() const;
 	const string getPassword() const;
@@ -61,31 +62,32 @@ public:
 	const string getServiceName() const;
 	const string getAccessToken() const;
 
-	void setService(shared_ptr <net::service> serv);
-	weak_ptr <net::service> getService() const;
+	void setSASLSession(std::shared_ptr<SASLSession<SASLImpl>> sess);
 
-	void setSASLSession(shared_ptr <SASLSession> sess);
-	shared_ptr <SASLSession> getSASLSession() const;
+	void setService(shared_ptr<net::service> serv);
 
-	void setSASLMechanism(shared_ptr <SASLMechanism> mech);
-	shared_ptr <SASLMechanism> getSASLMechanism() const;
+	void setSASLMechanism(std::shared_ptr<SASLMechanism<SASLImpl>> mech);
+	shared_ptr<SASLMechanism<SASLImpl>> getSASLMechanism() const;
 
-private:
-
+  private:
 	defaultAuthenticator m_default;
 
-	weak_ptr <net::service> m_service;
-	weak_ptr <SASLSession> m_saslSession;
-	shared_ptr <SASLMechanism> m_saslMech;
+	std::weak_ptr<net::service> m_service;
+	std::shared_ptr<SASLMechanism<SASLImpl>> m_saslMech;
+	std::weak_ptr<SASLSession<SASLImpl>> m_session;
 };
 
+extern template class VMIME_EXPORT defaultSASLAuthenticator<SASLImplementation>;
 
+} // detail
+
+using defaultSASLAuthenticator =
+    detail::defaultSASLAuthenticator<SASLImplementation>;
+    
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
 #endif // VMIME_SECURITY_SASL_DEFAULTSASLAUTHENTICATOR_HPP_INCLUDED
-

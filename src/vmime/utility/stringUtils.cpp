@@ -29,6 +29,27 @@ namespace vmime {
 namespace utility {
 
 
+std::vector<string>
+stringUtils::splitString(const string &instr, const char *sepc)
+{
+        size_t lastpos = 0;
+        std::vector<string> result;
+        string sep {sepc};
+        size_t sep_size = sep.size();
+        
+        while (lastpos < instr.size()) {
+                auto pos = instr.find(sep, lastpos);
+                if (pos == npos) {
+                        result.push_back(instr.substr(lastpos));
+                        break;
+                }
+                result.push_back(instr.substr(lastpos, pos-lastpos));
+                lastpos = pos + sep_size;
+        }
+        return result;
+}
+
+
 bool stringUtils::isStringEqualNoCase
 	(const string& s1, const char* s2, const size_t n)
 {

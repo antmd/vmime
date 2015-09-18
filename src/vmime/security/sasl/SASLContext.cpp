@@ -22,91 +22,87 @@
 //
 
 #include "vmime/config.hpp"
-
-
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
+#include "SASLContext.hpp"
 
+#include "vmime/types.hpp"
+
+#include "vmime/security/sasl/SASLSession.hpp"
+#include "vmime/security/sasl/SASLMechanismFactory.hpp"
 #include <sstream>
 
-#include <gsasl.h>
+#ifdef __APPLE__
+#include <pthread.h>
+#endif
 
-#include "vmime/security/sasl/SASLContext.hpp"
 #include "vmime/security/sasl/SASLMechanism.hpp"
-
 #include "vmime/base.hpp"
 
 #include "vmime/utility/encoder/encoderFactory.hpp"
-
 #include "vmime/utility/stream.hpp"
 #include "vmime/utility/outputStreamStringAdapter.hpp"
 #include "vmime/utility/inputStreamStringAdapter.hpp"
 #include "vmime/utility/inputStreamByteBufferAdapter.hpp"
+#include <memory>
 
-
+#define SHARED_THIS (dynamicCast<SASLContext<SASLImpl>>(shared_from_this()))
 namespace vmime {
 namespace security {
 namespace sasl {
+namespace detail {
 
+template <typename SASLImpl>
+SASLContext<SASLImpl>::~SASLContext() { this->teardownContext(); }
 
-SASLContext::SASLContext()
+template <typename SASLImpl>
+SASLContext<SASLImpl>::SASLContext() { ; }
+
+template <typename SASLImpl>
+shared_ptr<SASLSession<SASLImpl>>
+SASLContext<SASLImpl>::createSession(const string &serviceName, shared_ptr<authenticator> auth,
+              shared_ptr<SASLMechanism<SASLImpl>> mech)
 {
-	if (gsasl_init(&m_gsaslContext) != GSASL_OK)
-		throw std::bad_alloc();
+	return this->createSessionImpl(serviceName, auth, mech);
 }
 
-
-SASLContext::~SASLContext()
+template <typename SASLImpl>
+shared_ptr<SASLMechanism<SASLImpl>> SASLContext<SASLImpl>::createMechanism(const string &name)
 {
-	gsasl_done(m_gsaslContext);
+	SASLMechanismFactory<SASLImpl> *mechFactoryPtr(SASLMechanismFactory<SASLImpl>::getInstance());
+	return mechFactoryPtr->create(SHARED_THIS, name);
 }
 
-
-shared_ptr <SASLSession> SASLContext::createSession
-	(const string& serviceName,
-	 shared_ptr <authenticator> auth, shared_ptr <SASLMechanism> mech)
-{
-	return make_shared <SASLSession>
-		(serviceName, dynamicCast <SASLContext>(shared_from_this()), auth, mech);
-}
-
-
-shared_ptr <SASLMechanism> SASLContext::createMechanism(const string& name)
-{
-	return SASLMechanismFactory::getInstance()->create
-		(dynamicCast <SASLContext>(shared_from_this()), name);
-}
-
-
-shared_ptr <SASLMechanism> SASLContext::suggestMechanism
-	(const std::vector <shared_ptr <SASLMechanism> >& mechs)
+template <typename SASLImpl>
+shared_ptr<SASLMechanism<SASLImpl>>
+SASLContext<SASLImpl>::suggestMechanism(const std::vector<shared_ptr<SASLMechanism<SASLImpl>>> &mechs)
 {
 	if (mechs.empty())
-		return null;
+		return 0;
 
 	std::ostringstream oss;
 
-	for (unsigned int i = 0 ; i < mechs.size() ; ++i)
+	for (unsigned int i = 0; i < mechs.size(); ++i)
 		oss << mechs[i]->getName() << " ";
 
 	const string mechList = oss.str();
-	const char* suggested = gsasl_client_suggest_mechanism
-		(m_gsaslContext, mechList.c_str());
+	SASLImpl &impl = *this;
+	const auto &suggested = impl.suggestMechanismImpl(mechs);
 
 	if (suggested)
 	{
-		for (unsigned int i = 0 ; i < mechs.size() ; ++i)
+		for (unsigned int i = 0; i < mechs.size(); ++i)
 		{
-			if (mechs[i]->getName() == suggested)
+			if (mechs[i]->getName() == suggested->getName())
 				return mechs[i];
 		}
 	}
 
-	return null;
+	return 0;
 }
 
-
-void SASLContext::decodeB64(const string& input, byte_t** output, size_t* outputLen)
+template <typename SASLImpl>
+void SASLContext<SASLImpl>::decodeB64(const string& input, byte_t** output, size_t* outputLen)
 {
 	string res;
 
@@ -120,14 +116,15 @@ void SASLContext::decodeB64(const string& input, byte_t** output, size_t* output
 
 	byte_t* out = new byte_t[res.length()];
 
-	std::copy(res.begin(), res.end(), out);
+	copy(res.begin(), res.end(), out);
 
 	*output = out;
 	*outputLen = res.length();
 }
 
 
-const string SASLContext::encodeB64(const byte_t* input, const size_t inputLen)
+template <typename SASLImpl>
+const string SASLContext<SASLImpl>::encodeB64(const byte_t* input, const size_t inputLen)
 {
 	string res;
 
@@ -143,66 +140,18 @@ const string SASLContext::encodeB64(const byte_t* input, const size_t inputLen)
 }
 
 
-const string SASLContext::getErrorMessage(const string& fname, const int code)
+
+template <typename SASLImpl>
+const string SASLContext<SASLImpl>::getErrorMessage(const string &fname, const int code)
 {
-	string msg = fname + "() returned ";
-
-#define ERROR(x) \
-	case x: msg += #x; break;
-
-	switch (code)
-	{
-	ERROR(GSASL_NEEDS_MORE)
-	ERROR(GSASL_UNKNOWN_MECHANISM)
-	ERROR(GSASL_MECHANISM_CALLED_TOO_MANY_TIMES)
-	ERROR(GSASL_MALLOC_ERROR)
-	ERROR(GSASL_BASE64_ERROR)
-	ERROR(GSASL_CRYPTO_ERROR)
-	ERROR(GSASL_SASLPREP_ERROR)
-	ERROR(GSASL_MECHANISM_PARSE_ERROR)
-	ERROR(GSASL_AUTHENTICATION_ERROR)
-	ERROR(GSASL_INTEGRITY_ERROR)
-	ERROR(GSASL_NO_CLIENT_CODE)
-	ERROR(GSASL_NO_SERVER_CODE)
-	ERROR(GSASL_NO_CALLBACK)
-	ERROR(GSASL_NO_ANONYMOUS_TOKEN)
-	ERROR(GSASL_NO_AUTHID)
-	ERROR(GSASL_NO_AUTHZID)
-	ERROR(GSASL_NO_PASSWORD)
-	ERROR(GSASL_NO_PASSCODE)
-	ERROR(GSASL_NO_PIN)
-	ERROR(GSASL_NO_SERVICE)
-	ERROR(GSASL_NO_HOSTNAME)
-	ERROR(GSASL_GSSAPI_RELEASE_BUFFER_ERROR)
-	ERROR(GSASL_GSSAPI_IMPORT_NAME_ERROR)
-	ERROR(GSASL_GSSAPI_INIT_SEC_CONTEXT_ERROR)
-	ERROR(GSASL_GSSAPI_ACCEPT_SEC_CONTEXT_ERROR)
-	ERROR(GSASL_GSSAPI_UNWRAP_ERROR)
-	ERROR(GSASL_GSSAPI_WRAP_ERROR)
-	ERROR(GSASL_GSSAPI_ACQUIRE_CRED_ERROR)
-	ERROR(GSASL_GSSAPI_DISPLAY_NAME_ERROR)
-	ERROR(GSASL_GSSAPI_UNSUPPORTED_PROTECTION_ERROR)
-	ERROR(GSASL_KERBEROS_V5_INIT_ERROR)
-	ERROR(GSASL_KERBEROS_V5_INTERNAL_ERROR)
-	ERROR(GSASL_SECURID_SERVER_NEED_ADDITIONAL_PASSCODE)
-	ERROR(GSASL_SECURID_SERVER_NEED_NEW_PIN)
-
-	default:
-
-		msg += "unknown error";
-		break;
-	}
-
-#undef ERROR
-
-	return msg;
+	return SASLImpl::getErrorMessageImpl(fname, code);
 }
 
+template class VMIME_EXPORT SASLContext<SASLImplementation>;
 
+} // detail
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
-

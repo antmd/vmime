@@ -38,8 +38,13 @@ namespace vmime {
 namespace security {
 namespace sasl {
 
+namespace detail {
+        template<typename T> class SASLContext;
+}
 
-class SASLContext;
+
+using SASLContext = detail::SASLContext<SASLImplementation>;
+using SASLSession = detail::SASLSession<SASLImplementation>;
 
 
 /** SASL XOAUTH2 mechanism, used by GMail.
@@ -52,23 +57,23 @@ public:
 	~XOAuth2SASLMechanism();
 
 
-	const string getName() const;
+	const string getName() const override;
 
 	bool step(shared_ptr <SASLSession> sess,
 		 const byte_t* challenge, const size_t challengeLen,
-		 byte_t** response, size_t* responseLen);
+		 byte_t** response, size_t* responseLen) override;
 
-	bool isComplete() const;
+	bool isComplete(shared_ptr<SASLSession>) const override;
 
-	bool hasInitialResponse() const;
+	bool hasInitialResponse() const override;
 
 	void encode(shared_ptr <SASLSession> sess,
 		const byte_t* input, const size_t inputLen,
-		byte_t** output, size_t* outputLen);
+		byte_t** output, size_t* outputLen) override;
 
 	void decode(shared_ptr <SASLSession> sess,
 		const byte_t* input, const size_t inputLen,
-		byte_t** output, size_t* outputLen);
+		byte_t** output, size_t* outputLen) override;
 
 private:
 

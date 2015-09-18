@@ -55,8 +55,7 @@ service::service(shared_ptr <session> sess, const serviceInfos& /* infos */,
 	if (!auth)
 	{
 #if VMIME_HAVE_SASL_SUPPORT
-		m_auth = make_shared
-			<security::sasl::defaultSASLAuthenticator>();
+		m_auth = make_shared<security::sasl::defaultSASLAuthenticator>();
 #else
 		m_auth = make_shared
 			<security::defaultAuthenticator>();

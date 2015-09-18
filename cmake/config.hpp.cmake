@@ -58,6 +58,7 @@ typedef unsigned @VMIME_64BIT_TYPE@ vmime_uint64;
 #cmakedefine01 VMIME_HAVE_FILESYSTEM_FEATURES
 // -- SASL support
 #cmakedefine01 VMIME_HAVE_SASL_SUPPORT
+#cmakedefine01 VMIME_USE_CYRUS_SASL
 // -- TLS/SSL support
 #cmakedefine01 VMIME_HAVE_TLS_SUPPORT
 #cmakedefine01 VMIME_TLS_SUPPORT_LIB_IS_GNUTLS

@@ -24,36 +24,33 @@
 #ifndef VMIME_SECURITY_SASL_SASLAUTHENTICATOR_HPP_INCLUDED
 #define VMIME_SECURITY_SASL_SASLAUTHENTICATOR_HPP_INCLUDED
 
-
 #include "vmime/config.hpp"
-
 
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
-
+#include "vmime/security/sasl/SASLCommon.hpp"
 #include "vmime/types.hpp"
-
 #include "vmime/security/authenticator.hpp"
 
+#include <memory>
 
 namespace vmime {
 namespace security {
 namespace sasl {
+namespace detail {
 
-
-class SASLMechanism;
-class SASLSession;
-
+template <class SASLImpl> class SASLMechanism;
+template <class SASLImpl> class SASLSession;
 
 /** SASL-aware authenticator.
   *
   * Usually, you should not inherit from this class, but instead from the
   * more convenient defaultSASLAuthenticator class.
   */
-class VMIME_EXPORT SASLAuthenticator : public authenticator
-{
-public:
 
+template <class SASLImpl> class SASLAuthenticator : public authenticator
+{
+  public:
 	/** This method is called to allow the client to choose the
 	  * authentication mechanisms that will be used. By default,
 	  * the most secure mechanisms are chosen.
@@ -64,15 +61,10 @@ public:
 	  * @return ordered list of mechanism to use among the available
 	  * mechanisms (from the first to try to the last)
 	  */
-	virtual const std::vector <shared_ptr <SASLMechanism> > getAcceptableMechanisms
-		(const std::vector <shared_ptr <SASLMechanism> >& available,
-	         shared_ptr <SASLMechanism> suggested) const = 0;
-
-	/** Set the SASL session which is using this authenticator.
-	  *
-	  * @param sess SASL session
-	  */
-	virtual void setSASLSession(shared_ptr <SASLSession> sess) = 0;
+	virtual const std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>>
+	getAcceptableMechanisms(
+	    const std::vector<std::shared_ptr<SASLMechanism<SASLImpl>>> &available,
+	    std::shared_ptr<SASLMechanism<SASLImpl>> suggested) const = 0;
 
 	/** Set the SASL mechanism which has been selected for the
 	  * SASL authentication process. This may be called several times
@@ -81,16 +73,21 @@ public:
 	  *
 	  * @param mech SASL mechanism
 	  */
-	virtual void setSASLMechanism(shared_ptr <SASLMechanism> mech) = 0;
+	virtual void
+	setSASLMechanism(std::shared_ptr<SASLMechanism<SASLImpl>> mech) = 0;
+
+	virtual void
+	setSASLSession(std::shared_ptr<SASLSession<SASLImpl>> sess) = 0;
 };
 
+} // detail
+
+using SASLAuthenticator = detail::SASLAuthenticator<SASLImplementation>;
 
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
 #endif // VMIME_SECURITY_SASL_SASLAUTHENTICATOR_HPP_INCLUDED
-

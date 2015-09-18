@@ -31,68 +31,73 @@
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
 
+#include "vmime/security/sasl/SASLCommon.hpp"
 #include "vmime/types.hpp"
 
 #include "vmime/net/socket.hpp"
+#include <memory>
 
 
 namespace vmime {
 namespace security {
 namespace sasl {
-
-
-class SASLSession;
+namespace detail {
+				
+				
+template <typename SASLImpl> class SASLSession;
 
 
 /** A socket which provides data integrity and/or privacy protection.
-  */
-class VMIME_EXPORT SASLSocket : public net::socket
+ */
+template <class SASLImpl>
+class SASLSocket : public net::socket
 {
 public:
-
-	SASLSocket(shared_ptr <SASLSession> sess, shared_ptr <net::socket> wrapped);
+	
+	SASLSocket( std::shared_ptr<SASLSession<SASLImpl> > sess, shared_ptr<net::socket> wrapped);
+	
 	~SASLSocket();
-
+	
 	void connect(const string& address, const port_t port);
 	void disconnect();
-
 	bool isConnected() const;
-
-	bool waitForRead(const int msecs = 30000);
-	bool waitForWrite(const int msecs = 30000);
-
+	
 	void receive(string& buffer);
 	size_t receiveRaw(byte_t* buffer, const size_t count);
-
+	
 	void send(const string& buffer);
 	void send(const char* str);
 	void sendRaw(const byte_t* buffer, const size_t count);
 	size_t sendRawNonBlocking(const byte_t* buffer, const size_t count);
-
+	
 	size_t getBlockSize() const;
-
 	unsigned int getStatus() const;
-
 	const string getPeerName() const;
 	const string getPeerAddress() const;
-
 	shared_ptr <net::timeoutHandler> getTimeoutHandler();
-
+	
 	void setTracer(shared_ptr <net::tracer> tracer);
 	shared_ptr <net::tracer> getTracer();
-
+	
+	bool waitForRead(const int msecs);
+	bool waitForWrite(const int msecs);
+	
 private:
-
-	shared_ptr <SASLSession> m_session;
-	shared_ptr <net::socket> m_wrapped;
-
+	
+	std::shared_ptr<SASLSession<SASLImpl> > m_session;
+	std::shared_ptr<net::socket> m_wrapped;
+	
 	byte_t* m_pendingBuffer;
 	size_t m_pendingPos;
 	size_t m_pendingLen;
-
+	
 	byte_t m_recvBuffer[65536];
 };
-
+				
+extern template class SASLSocket<SASLImplementation>;
+    
+} // detail
+using SASLSocket = detail::SASLSocket<SASLImplementation>;
 
 } // sasl
 } // security

@@ -40,6 +40,9 @@
 
 #if VMIME_HAVE_SASL_SUPPORT
 	#include "vmime/security/sasl/SASLContext.hpp"
+	#include "vmime/security/sasl/SASLMechanism.hpp"
+	#include "vmime/security/sasl/SASLSession.hpp"
+	#include "vmime/security/sasl/SASLAuthenticator.hpp"
 #endif // VMIME_HAVE_SASL_SUPPORT
 
 #if VMIME_HAVE_TLS_SUPPORT

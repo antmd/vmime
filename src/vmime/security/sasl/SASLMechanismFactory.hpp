@@ -24,129 +24,100 @@
 #ifndef VMIME_SECURITY_SASL_SASLMECHANISMFACTORY_HPP_INCLUDED
 #define VMIME_SECURITY_SASL_SASLMECHANISMFACTORY_HPP_INCLUDED
 
-
 #include "vmime/config.hpp"
-
 
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
+#include "vmime/security/sasl/builtinSASLMechanism.hpp"
 
 #include "vmime/types.hpp"
 #include "vmime/base.hpp"
+#include "vmime/exception.hpp"
 
 #include "vmime/security/sasl/SASLMechanism.hpp"
+#include "vmime/utility/stringUtils.hpp"
 
 #include <map>
-
+#include <iostream>
 
 namespace vmime {
 namespace security {
 namespace sasl {
+namespace detail {
 
-
-class SASLContext;
-
+template <class SASLImpl> class SASLContext;
 
 /** Constructs SASL mechanism objects.
-  */
-class VMIME_EXPORT SASLMechanismFactory : public object
+ */
+template <class SASLImpl>
+class SASLMechanismFactory : public SASLImpl
 {
-private:
+  private:
+	friend class SASL_POLICY;
 
-	SASLMechanismFactory();
-	~SASLMechanismFactory();
+  public:
+	SASLMechanismFactory() { ; }
+	~SASLMechanismFactory() { ; }
 
+	using MechFactoryFn = std::function<shared_ptr<SASLMechanism<SASLImpl>>(
+	    shared_ptr<SASLContext<SASLImpl>> ctx, const string &name)>;
+	using MapType = std::map<string, MechFactoryFn>;
 
-	class registeredMechanism : public object
-	{
-	public:
-
-		virtual shared_ptr <SASLMechanism> create
-			(shared_ptr <SASLContext> ctx, const string& name) = 0;
-	};
-
-	template <typename T>
-	class registeredMechanismImpl : public registeredMechanism
-	{
-	public:
-
-		shared_ptr <SASLMechanism> create(shared_ptr <SASLContext> ctx, const string& name)
-		{
-			return vmime::make_shared <T>(ctx, name);
-		}
-	};
-
-	typedef std::map <string, shared_ptr <registeredMechanism> > MapType;
-	MapType m_mechs;
-
-public:
-
-	static SASLMechanismFactory* getInstance();
+	static SASLMechanismFactory *getInstance();
 
 	/** Register a mechanism into this factory, so that subsequent
-	  * calls to create return a valid object for this mechanism.
-	  *
-	  * @param name mechanism name
-	  */
-	template <typename MECH_CLASS>
-	void registerMechanism(const string& name)
-	{
-		m_mechs.insert(MapType::value_type(name,
-			vmime::make_shared <registeredMechanismImpl <MECH_CLASS> >()));
-	}
+	 * calls to create return a valid object for this mechanism.
+	 *
+	 * @param name mechanism name
+	 */
+	template <typename MECH_CLASS> void registerMechanism(const string &name);
 
 	/** Create a mechanism object given its name.
-	  *
-	  * @param ctx SASL context
-	  * @param name mechanism name
-	  * @return a new mechanism object
-	  * @throw exceptions::no_such_mechanism if no mechanism is
-	  * registered for the specified name
-	  */
-	shared_ptr <SASLMechanism> create(shared_ptr <SASLContext> ctx, const string& name);
+	 *
+	 * @param ctx SASL context
+	 * @param name mechanism name
+	 * @return a new mechanism object
+	 * @throw exceptions::no_such_mechanism if no mechanism is
+	 * registered for the specified name
+	 */
+	std::shared_ptr<SASLMechanism<SASLImpl>> create(shared_ptr<SASLContext<SASLImpl>> ctx, const string &name_);
 
 	/** Return a list of supported mechanisms. This includes mechanisms
-	  * registered using registerMechanism() as well as the ones that
-	  * are built-in.
-	  *
-	  * @return list of supported mechanisms
-	  */
-	const std::vector <string> getSupportedMechanisms() const;
+	 * registered using registerMechanism() as well as the ones that
+	 * are built-in.
+	 *
+	 * @return list of supported mechanisms
+	 */
+
+	const std::vector<string> getSupportedMechanisms(shared_ptr<SASLSession<SASLImpl>> sess) const;
 
 	/** Test whether an authentication mechanism is supported.
-	  *
-	  * @param name mechanism name
-	  * @return true if the specified mechanism is supported,
-	  * false otherwise
-	  */
-	bool isMechanismSupported(const string& name) const;
+	 *
+	 * @param name mechanism name
+	 * @return true if the specified mechanism is supported,
+	 * false otherwise
+	 */
+	bool isMechanismSupported(const string &name) const;
 
-	/** Test whether an authentication mechanism is directly supported
-	  * by the underlying SASL library.
-	  *
-	  * @param name mechanism name
-	  * @return true if the specified mechanism is built-in,
-	  * or false otherwise
-	  */
-	bool isBuiltinMechanism(const string& name) const;
+	bool isBuiltinMechanism(const string &name) const;
 
-private:
+  private:
+	MapType getMechanismMap();
 
-#ifdef GSASL_VERSION
-	Gsasl* m_gsaslContext;
-#else
-	void* m_gsaslContext;
-#endif // GSASL_VERSION
-
+  private:
+	MapType m_mechs;
 };
 
+extern template class SASLMechanismFactory<SASLImplementation>;
+
+} // detail
+
+using SASLMechanismFactory = detail::SASLMechanismFactory<SASLImplementation>;
 
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
 #endif // VMIME_SECURITY_SASL_SASLMECHANISMFACTORY_HPP_INCLUDED
-

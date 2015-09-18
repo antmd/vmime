@@ -30,21 +30,24 @@
 
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
-
+#include "vmime/security/sasl/SASLCommon.hpp"
 #include "vmime/types.hpp"
 
 
 namespace vmime {
 namespace security {
 namespace sasl {
+    namespace detail {
 
 
+template <class SASLImpl>
 class SASLSession;
 
 
 /** An SASL mechanism.
   */
-class VMIME_EXPORT SASLMechanism : public object
+template <class SASLImpl>
+class SASLMechanism 
 {
 public:
 
@@ -59,8 +62,8 @@ public:
 	  * in response to the server.
 	  *
 	  * If the challenge is empty (challengeLen == 0), the initial
-	  * response is returned, if this mechanism has one.
-	  *
+	  * response is returned, if the mechanism has one.
+      * 
 	  * @param sess SASL session
 	  * @param challenge challenge sent from the server
 	  * @param challengeLen length of challenge
@@ -73,10 +76,12 @@ public:
 	  * authentication (in this case, the values in 'response' and
 	  * 'responseLen' are undetermined)
 	  */
-	virtual bool step
-		(shared_ptr <SASLSession> sess,
-		 const byte_t* challenge, const size_t challengeLen,
-		 byte_t** response, size_t* responseLen) = 0;
+	virtual bool step(shared_ptr<SASLSession<SASLImpl>> sess
+                      , const byte_t* challenge
+                      , const size_t challengeLen
+                      , byte_t** response
+                      , size_t* responseLen
+                      ) = 0;
 
 	/** Check whether authentication has completed. If false, more
 	  * calls to evaluateChallenge() are needed to complete the
@@ -85,7 +90,8 @@ public:
 	  * @return true if the authentication has finished, or false
 	  * otherwise
 	  */
-	virtual bool isComplete() const = 0;
+	virtual bool isComplete(shared_ptr<SASLSession<SASLImpl>> sess) const = 0;
+
 
 	/** Determine if this mechanism has an optional initial response.
 	  * If true, caller should call step() with an empty challenge to
@@ -95,6 +101,7 @@ public:
 	  * false otherwise
 	  */
 	virtual bool hasInitialResponse() const = 0;
+
 
 	/** Encode data according to negotiated SASL mechanism. This
 	  * might mean that data is integrity or privacy protected.
@@ -109,9 +116,12 @@ public:
 	  * the encoding of data (in this case, the values in 'output' and
 	  * 'outputLen' are undetermined)
 	  */
-	virtual void encode(shared_ptr <SASLSession> sess,
-		const byte_t* input, const size_t inputLen,
-		byte_t** output, size_t* outputLen) = 0;
+	virtual void encode(shared_ptr<SASLSession<SASLImpl>> sess
+                        , const byte_t* input
+                        , const size_t inputLen
+                        , byte_t** output
+                        , size_t* outputLen
+                        ) = 0;
 
 	/** Decode data according to negotiated SASL mechanism. This
 	  * might mean that data is integrity or privacy protected.
@@ -126,11 +136,18 @@ public:
 	  * the encoding of data (in this case, the values in 'output' and
 	  * 'outputLen' are undetermined)
 	  */
-	virtual void decode(shared_ptr <SASLSession> sess,
-		const byte_t* input, const size_t inputLen,
-		byte_t** output, size_t* outputLen) = 0;
+	virtual void decode(shared_ptr<SASLSession<SASLImpl>> sess
+                        , const byte_t* input
+                        , const size_t inputLen
+                        , byte_t** output
+                        , size_t* outputLen
+                        ) = 0;
 };
 
+
+    } // detail
+    
+using SASLMechanism = detail::SASLMechanism<SASLImplementation>;
 
 } // sasl
 } // security

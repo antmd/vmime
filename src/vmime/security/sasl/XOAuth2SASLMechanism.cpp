@@ -31,6 +31,7 @@
 
 #include "vmime/security/sasl/SASLContext.hpp"
 #include "vmime/security/sasl/SASLSession.hpp"
+#include "vmime/security/authenticator.hpp"
 
 #include "vmime/exception.hpp"
 
@@ -94,7 +95,7 @@ bool XOAuth2SASLMechanism::step
 }
 
 
-bool XOAuth2SASLMechanism::isComplete() const
+bool XOAuth2SASLMechanism::isComplete(shared_ptr<SASLSession> sess) const
 {
 	return m_complete;
 }

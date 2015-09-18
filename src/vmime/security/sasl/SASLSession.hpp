@@ -24,142 +24,122 @@
 #ifndef VMIME_SECURITY_SASL_SASLSESSION_HPP_INCLUDED
 #define VMIME_SECURITY_SASL_SASLSESSION_HPP_INCLUDED
 
-
 #include "vmime/config.hpp"
-
 
 #if VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
-
-#include "vmime/types.hpp"
-
-#include "vmime/security/sasl/SASLAuthenticator.hpp"
-#include "vmime/security/sasl/SASLMechanism.hpp"
-#include "vmime/security/sasl/SASLSocket.hpp"
-
+#include "vmime/security/sasl/SASLCommon.hpp"
+#include "vmime/base.hpp"
 
 namespace vmime {
+
+namespace net { class socket; }
+
 namespace security {
 namespace sasl {
+namespace detail {
 
-
-class SASLContext;
-
+template <class T> class SASLContext;
 
 /** An SASL client session.
-  */
-class VMIME_EXPORT SASLSession : public object
+ */
+template <class SASLImpl>
+class VMIME_EXPORT SASLSession : public SASLImpl, public object
 {
-	friend class builtinSASLMechanism;
-	friend class SASLSocket;
+	template <class T> friend class builtinSASLMechanism;
+	template <class T> friend class SASLSocket;
 
-public:
-
+  public:
 	~SASLSession();
 
 	/** Construct a new SASL session.
-	  *
-	  * @param serviceName name of the service using this session
-	  * @param ctx SASL context
-	  * @param auth authenticator to use for this session
-	  * @param mech SASL mechanism
-	  */
-	SASLSession(const string& serviceName, shared_ptr <SASLContext> ctx,
-	        shared_ptr <authenticator> auth, shared_ptr <SASLMechanism> mech);
+	 *
+	 * @param serviceName name of the service using this session
+	 * @param ctx SASL context
+	 * @param auth authenticator to use for this session
+	 * @param mech SASL mechanism
+	 */
+	SASLSession(const string &serviceName, shared_ptr<authenticator> auth,
+	            std::shared_ptr<SASLMechanism<SASLImpl>> mech);
 
 	/** Initialize this SASL session. This must be called before
-	  * calling any other method on this object (except accessors).
-	  */
+	 * calling any other method on this object (except accessors).
+	 */
 	void init();
 
 	/** Return the authenticator used for this session. This is the
-	  * authenticator which has been previously set with a call to
-	  * setAuthenticator().
-	  *
-	  * @return authenticator object
-	  */
-	shared_ptr <authenticator> getAuthenticator();
+	 * authenticator which has been previously set with a call to
+	 * setAuthenticator().
+	 *
+	 * @return authenticator object
+	 */
+	shared_ptr<authenticator> getAuthenticator();
 
 	/** Return the mechanism used for this session.
-	  *
-	  * @return SASL mechanism
-	  */
-	shared_ptr <SASLMechanism> getMechanism();
-
-	/** Return the SASL context.
-	  *
-	  * @return SASL context
-	  */
-	shared_ptr <SASLContext> getContext();
+	 *
+	 * @return SASL mechanism
+	 */
+	std::shared_ptr<SASLMechanism<SASLImpl>> getMechanism();
 
 	/** Perform one step of SASL authentication. Accept data from the
-	  * server (challenge), process it and return data to be returned
-	  * in response to the server.
-	  *
-	  * If the challenge is empty (challengeLen == 0), the initial
-	  * response is returned, if the mechanism has one.
-	  *
-	  * @param challenge challenge sent from the server
-	  * @param challengeLen length of challenge
-	  * @param response response to send to the server (allocated by
-	  * this function, free with delete[])
-	  * @param responseLen length of response buffer
-	  * @return true if authentication terminated successfully, or
-	  * false if the authentication process should continue
-	  * @throw exceptions::sasl_exception if an error occured during
-	  * authentication (in this case, the values in 'response' and
-	  * 'responseLen' are undetermined)
-	  */
-	bool evaluateChallenge
-		(const byte_t* challenge, const size_t challengeLen,
-		 byte_t** response, size_t* responseLen);
+	 * server (challenge), process it and return data to be returned
+	 * in response to the server.
+	 *
+	 * If the challenge is empty (challengeLen == 0), the initial
+	 * response is returned, if the mechanism has one.
+	 *
+	 * @param challenge challenge sent from the server
+	 * @param challengeLen length of challenge
+	 * @param response response to send to the server (allocated by
+	 * this function, free with delete[])
+	 * @param responseLen length of response buffer
+	 * @return true if authentication terminated successfully, or
+	 * false if the authentication process should continue
+	 * @throw exceptions::sasl_exception if an error occured during
+	 * authentication (in this case, the values in 'response' and
+	 * 'responseLen' are undetermined)
+	 */
+	bool evaluateChallenge(const byte_t *challenge, const size_t challengeLen,
+	                       byte_t **response, size_t *responseLen);
 
 	/** Return a socket in which transmitted data is integrity
-	  * and/or privacy protected, depending on the QOP (Quality of
-	  * Protection) negotiated during the SASL authentication.
-	  *
-	  * @param sok socket to wrap
-	  * @return secured socket
-	  */
-	shared_ptr <net::socket> getSecuredSocket(shared_ptr <net::socket> sok);
+	 * and/or privacy protected, depending on the QOP (Quality of
+	 * Protection) negotiated during the SASL authentication.
+	 *
+	 * @param sok socket to wrap
+	 * @return secured socket
+	 */
+	shared_ptr<net::socket> getSecuredSocket(shared_ptr<net::socket> sok);
 
 	/** Return the name of the service which is using this
-	  * SASL session (eg. "imap"). This value should be returned
-	  * by the authenticator when INFO_SERVICE is requested.
-	  *
-	  * @return service name
-	  */
+	 * SASL session (eg. "imap"). This value should be returned
+	 * by the authenticator when INFO_SERVICE is requested.
+	 *
+	 * @return service name
+	 */
 	const string getServiceName() const;
 
-private:
+	typename SASLImpl::SASLNativeSessionType getNativeSession();
 
+  private:
 	const string m_serviceName;
 
-	shared_ptr <SASLContext> m_context;
-	shared_ptr <authenticator> m_auth;
-	shared_ptr <SASLMechanism> m_mech;
+	shared_ptr<authenticator> m_auth;
+	shared_ptr<SASLMechanism<SASLImpl>> m_mech;
 
-#ifdef GSASL_VERSION
-	Gsasl* m_gsaslContext;
-	Gsasl_session* m_gsaslSession;
-
-	static int gsaslCallback(Gsasl* ctx, Gsasl_session* sctx, Gsasl_property prop);
-#else
-	void* m_gsaslContext;
-	void* m_gsaslSession;
-
-	static int gsaslCallback(void* ctx, void* sctx, int prop);
-#endif // GSASL_VERSION
-
+	typename SASLImpl::SASLNativeSessionType m_nativeSession;
 };
 
+extern template class VMIME_EXPORT SASLSession<SASLImplementation>;
+
+} // detail
+
+using SASLSession = detail::SASLSession<SASLImplementation>;
 
 } // sasl
 } // security
 } // vmime
 
-
 #endif // VMIME_HAVE_MESSAGING_FEATURES && VMIME_HAVE_SASL_SUPPORT
 
 #endif // VMIME_SECURITY_SASL_SASLSESSION_HPP_INCLUDED
-

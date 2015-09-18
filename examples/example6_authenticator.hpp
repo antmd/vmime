@@ -1,6 +1,7 @@
 
 
 #if VMIME_HAVE_SASL_SUPPORT
+#import <vmime/security/sasl/SASLMechanism.hpp>
 
 // SASL authentication handler
 class interactiveAuthenticator : public vmime::security::sasl::defaultSASLAuthenticator
